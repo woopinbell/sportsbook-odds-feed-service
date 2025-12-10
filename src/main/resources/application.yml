@@ -1,0 +1,80 @@
+# Common defaults shared by all profiles. Profile-specific overrides live in
+# application-mock.yml and application-real.yml. Active profile selection:
+#   ./mvnw spring-boot:run -Dspring-boot.run.profiles=mock   (default)
+#   ./mvnw spring-boot:run -Dspring-boot.run.profiles=real   (needs THE_ODDS_API_KEY)
+spring:
+  application:
+    name: odds-feed-service
+  profiles:
+    # Default to mock so a fresh checkout boots without external credentials.
+    default: mock
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        compression.type: lz4
+        # Avro serializer is wired via @Bean in KafkaConfig — keep
+        # value/key serializer here as ByteArray so misconfiguration fails
+        # loudly rather than silently sending String.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+
+server:
+  # Port allocation across sportsbook services (no ADR yet — first service
+  # to claim a port wins, others align):
+  #   gateway 8080, admin-api 8081, betting 8082, wallet 8083,
+  #   risk 8084, odds-feed 8085, settlement 8086.
+  port: ${SERVER_PORT:8085}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  tracing:
+    sampling:
+      # 100% in dev; production tuning happens via env override.
+      probability: ${OTEL_SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+oddsfeed:
+  publish:
+    # Project contract: only publish OddsChanged when the
+    # absolute relative change is at least this fraction. Filters out
+    # sub-1% noise from the mock simulator and live providers.
+    odds-change-threshold: 0.01
+  kafka:
+    topics:
+      odds-changed: odds.changed
+      market-status-changed: market.status.changed
+      event-lifecycle: event.lifecycle
+      match-result: match.result
+  cache:
+    # 24h TTL for odds / event / market keys per the project cache contract.
+    ttl: 24h
