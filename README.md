@@ -16,13 +16,7 @@ TheOddsApiProvider┘                    └─▶ Kafka
                                            └─ match.result
 ```
 
-`OddsProvider` 인터페이스 뒤에 두 공급자를 둡니다.
-
-- 기본 `mock` 프로필은 시드가 고정된 경기와 배당 변화를 만들어 로컬 개발과 통합
-  테스트를 재현할 수 있게 합니다.
-- 선택 사항인 `real` 프로필은 The Odds API를 호출합니다. 호출 빈도와 월간 사용량을
-  제한하며 `THE_ODDS_API_KEY`가 필요합니다.
-
+`OddsProvider` 인터페이스 뒤에 재현 가능한 모의 공급자와 선택형 실제 공급자를 둡니다.
 `FeedOrchestrator`는 선택된 공급자의 이벤트를 Redis 캐시와 Kafka 발행기로 전달합니다.
 배당이 1% 이상 변했을 때만 `odds.changed`를 발행하지만, Redis에는 모든 최신 값을
 기록합니다. 같은 경기의 이벤트는 `eventId`를 파티션 키로 사용해 순서를 유지합니다.
@@ -34,47 +28,30 @@ TheOddsApiProvider┘                    └─▶ Kafka
 | `GET /api/v1/events` | 시작 시각 기준 경기 목록 조회 |
 | `GET /api/v1/events/{id}` | 경기 상세 조회 |
 | `GET /api/v1/odds/{eventId}/{marketId}/{selectionId}` | 한 선택지의 현재 배당 조회 |
-| `POST /internal/v1/events/{eventId}/markets/{marketId}/suspend` | 마켓 일시 중지 |
-| `POST /internal/v1/events/{eventId}/markets/{marketId}/close` | 마켓 종료 |
-| `POST /internal/v1/events/{eventId}/markets/{marketId}/reopen` | 마켓 재개 |
-
-## 기술 구성
-
-- Java 17, Spring Boot 3.2, Maven
-- Spring MVC, WebClient, Project Reactor
-- Kafka, Avro, Redis(Lettuce)
-- Micrometer, OpenTelemetry, JSON 로그
-- JUnit 5, Mockito, WireMock, Testcontainers, Embedded Kafka
+| `POST /internal/v1/events/{eventId}/markets/{marketId}/{suspend,close,reopen}` | 마켓 상태 변경 |
 
 ## 빌드와 실행
-
-공통 계약을 먼저 로컬 Maven 저장소에 설치합니다.
 
 ```sh
 (cd ../sportsbook-shared-protocol-fix && ./mvnw -DskipTests install)
 ./mvnw verify
-```
-
-모의 공급자로 실행하려면 Redis와 Kafka를 준비한 뒤 다음 명령을 사용합니다.
-
-```sh
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=mock
 ```
 
-실제 공급자는 API 키를 환경 변수로 전달합니다.
+실제 공급자를 사용하려면 `THE_ODDS_API_KEY`를 지정하고 `real` 프로필로 실행합니다.
+모의 프로필도 Redis와 Kafka가 필요합니다.
+
+## 발행 처리량 확인
 
 ```sh
-THE_ODDS_API_KEY=your-key \
-  ./mvnw spring-boot:run -Dspring-boot.run.profiles=real
+./mvnw test -Dtest=KafkaPublishThroughputTest
 ```
 
-## 주요 설정
+이 검사는 단일 JVM에서 발행기가 이벤트를 직렬화하고 내장 브로커에 보내는 처리량을
+측정합니다. 목표는 초당 100,000건입니다. 네트워크를 거치는 운영 Kafka의 수용량을
+뜻하지 않으며, 브로커와 호스트 조건을 결과와 함께 기록해야 합니다.
 
-- Redis 배당 키: `odds:{eventId}:{marketId}:{selectionId}`
-- Redis 경기 키: `event:{eventId}`
-- Redis 마켓 키: `market:{eventId}:{marketId}`
-- 기본 캐시 보존 기간: 24시간
-- 기본 배당 발행 임계값: 1%
+자세한 실행 조건은 [부하 검증 문서](load-test/README.md)를 참고해 주세요.
 
 ## 현재 범위
 
