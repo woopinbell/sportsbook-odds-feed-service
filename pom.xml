@@ -83,6 +83,15 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- commons-pool2: required by Lettuce connection pooling
+             (spring.data.redis.lettuce.pool.enabled=true in application.yml).
+             Absent at integration runtime → ClassNotFoundException on
+             GenericObjectPoolConfig. Unit tests didn't exercise the pool, so
+             this only surfaced in the full-stack run. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+        </dependency>
 
         <!-- Kafka: publish OddsChanged / MarketStatusChanged /
              EventLifecycle / MatchResult events. Partition key = eventId
