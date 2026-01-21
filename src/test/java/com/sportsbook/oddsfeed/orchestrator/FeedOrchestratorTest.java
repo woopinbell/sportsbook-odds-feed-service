@@ -182,6 +182,47 @@ class FeedOrchestratorTest {
   }
 
   @Test
+  void terminalLifecycleClosesTrackedMarkets() {
+    // An odds tick first, so the orchestrator knows this event's market (and it is OPEN).
+    Instant t1 = Instant.parse("2026-05-28T10:00:00Z");
+    orchestrator.dispatch(
+        eventId,
+        new ProviderEvent.OddsUpdated(
+            eventId, marketId, selectionId, Odds.ofDecimal("2.00"), Odds.ofDecimal("2.10"), t1));
+    when(cache.getMarketStatus(eventId, marketId)).thenReturn(Optional.of(MarketStatus.OPEN));
+
+    Instant t2 = Instant.parse("2026-05-28T10:05:00Z");
+    orchestrator.dispatch(
+        eventId,
+        new ProviderEvent.LifecycleUpdated(
+            eventId, EventLifecycleStatus.POSTPONED, summary.scheduledStartAt(), t2));
+
+    verify(publisher)
+        .publishMarketStatusChanged(
+            eq(eventId),
+            eq(marketId),
+            eq(MarketStatus.OPEN),
+            eq(MarketStatus.CLOSED),
+            eq("EVENT_POSTPONED"),
+            eq(t2));
+    verify(cache).storeMarketStatus(eventId, marketId, MarketStatus.CLOSED);
+  }
+
+  @Test
+  void terminalLifecycleWithNoKnownMarketsClosesNothing() {
+    Instant when = Instant.parse("2026-05-28T10:00:00Z");
+
+    orchestrator.dispatch(
+        eventId,
+        new ProviderEvent.LifecycleUpdated(
+            eventId, EventLifecycleStatus.CANCELLED, summary.scheduledStartAt(), when));
+
+    verify(publisher, never())
+        .publishMarketStatusChanged(any(), any(), any(), any(), any(), any());
+    verify(cache, never()).storeMarketStatus(any(), any(), eq(MarketStatus.CLOSED));
+  }
+
+  @Test
   void streamSubscriptionForwardsEventsToDispatch() {
     Sinks.Many<ProviderEvent> sink = Sinks.many().multicast().onBackpressureBuffer();
     when(provider.listEvents(Sport.FOOTBALL)).thenReturn(List.of(summary));
