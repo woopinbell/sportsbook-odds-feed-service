@@ -188,8 +188,8 @@ public class FeedOrchestrator {
   }
 
   /**
-   * Flips every known market of {@code eventId} to CLOSED (cache + MarketStatusChanged), reading the
-   * prior status so the published transition is accurate. Idempotent: a re-delivered terminal
+   * Flips every known market of {@code eventId} to CLOSED (cache + MarketStatusChanged), reading
+   * the prior status so the published transition is accurate. Idempotent: a re-delivered terminal
    * lifecycle skips markets already CLOSED.
    */
   private void closeMarkets(EventId eventId, EventLifecycleStatus status, Instant occurredAt) {

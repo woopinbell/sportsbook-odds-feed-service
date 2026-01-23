@@ -217,8 +217,7 @@ class FeedOrchestratorTest {
         new ProviderEvent.LifecycleUpdated(
             eventId, EventLifecycleStatus.CANCELLED, summary.scheduledStartAt(), when));
 
-    verify(publisher, never())
-        .publishMarketStatusChanged(any(), any(), any(), any(), any(), any());
+    verify(publisher, never()).publishMarketStatusChanged(any(), any(), any(), any(), any(), any());
     verify(cache, never()).storeMarketStatus(any(), any(), eq(MarketStatus.CLOSED));
   }
 

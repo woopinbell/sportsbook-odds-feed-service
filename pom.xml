@@ -40,7 +40,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Sportsbook shared library (Avro events, value objects, DTOs). -->
-        <shared-protocol.version>0.1.0-SNAPSHOT</shared-protocol.version>
+        <shared-protocol.version>0.2.0-SNAPSHOT</shared-protocol.version>
 
         <!-- Observability extras (others come from the Spring Boot BOM). -->
         <logstash-encoder.version>7.4</logstash-encoder.version>
