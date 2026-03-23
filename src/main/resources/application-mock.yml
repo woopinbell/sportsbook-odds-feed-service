@@ -1,0 +1,27 @@
+# Mock provider profile (default). Deterministic simulator that drives the
+# full event lifecycle locally — no external API key needed.
+#
+# ADR-0010: Mock is the primary source for development, integration tests,
+# load tests, and chaos scenarios. The Real adapter is reserved for
+# integration demos against The Odds API.
+oddsfeed:
+  provider:
+    mode: mock
+  mock:
+    # Time-scale factor: how many simulated minutes elapse per real second.
+    # Default 1 (= 1 real second simulates 1 mock minute) gives a comfortable
+    # pace for local development. Crank up to 60 during load tests so a
+    # 90-minute match completes in 90 real seconds.
+    minutes-per-second: 1
+    scenarios:
+      # When true, the @Scheduled rotator cycles through MockScenario
+      # variants automatically so a long-running mock instance exercises
+      # every edge case. Load tests set this to false and drive specific
+      # scenarios by ID for determinism.
+      auto-rotate: true
+      rotation-interval-seconds: 60
+    # Base implied probabilities for synthetic match outcomes; the actual
+    # mock odds drift around these targets with Gaussian noise.
+    base-home-win-probability: 0.45
+    base-draw-probability: 0.25
+    base-away-win-probability: 0.30

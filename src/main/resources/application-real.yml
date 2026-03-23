@@ -1,0 +1,22 @@
+# Real provider profile. Activates the TheOddsApiProvider adapter.
+# Requires the THE_ODDS_API_KEY environment variable (free tier:
+# 500 requests/month, 2 sports). ADR-0010.
+oddsfeed:
+  provider:
+    mode: real
+  real:
+    api-key: ${THE_ODDS_API_KEY}
+    base-url: https://api.the-odds-api.com/v4
+    # Free tier supports a handful of sports; keep the V1 set small so we
+    # don't burn the monthly quota on bootstrap.
+    sport-keys:
+      - soccer_epl
+      - basketball_nba
+    rate-limit:
+      # Conservative budget for the 500 req/month free tier: at most
+      # 5 calls per minute keeps headroom for retries and admin polls.
+      max-requests-per-minute: 5
+    # Self-counted monthly quota tracked in Redis (the provider has no
+    # cheap usage endpoint). Reset is a daily check against the API's
+    # response headers.
+    monthly-quota: 500
