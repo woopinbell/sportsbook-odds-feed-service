@@ -133,15 +133,22 @@ src/
 - Mock 시나리오 라이브러리: `NormalMatch`, `LateGoal`, `MatchPostponed`, `SuddenMarketSuspend`, `OddsCrash`
 - Redis key 구조: `odds:{eventId}:{marketId}:{selectionId}` (TTL 24h), `event:{eventId}`, `market:{eventId}:{marketId}`
 
-## 성능 (TBD — Phase 2-C 부하 테스트 후 박제)
+## 성능
 
-| 시나리오 | 목표 | 측정값 |
-|---|---|---|
-| Kafka publish throughput | 10만 events/sec | TBD |
-| Mock → Kafka end-to-end latency | p99 < 100ms | TBD |
-| 1% threshold filter 정확성 | 100% | TBD |
+| 시나리오 | 목표 | 측정값 | 측정 환경 |
+|---|---|---|---|
+| Publisher → Kafka throughput (single thread) | 10만 events/sec | **약 290,000 events/sec** (3회 평균 ≈ 290k) | EmbeddedKafkaZKBroker, ARM macOS, acks=1 + linger.ms=5 + lz4 |
+| Mock → Kafka end-to-end latency p99 | < 100ms | TBD | Phase 5 e2e suite (orchestration repo)에서 측정 |
+| 1% threshold filter 정확성 | 100% | **100%** (`OddsFeedPublisherTest.oddsChangeBelowThresholdIsNotPublished` 등 7 케이스) | `mvn test` |
+| HTTP read p99 (`/api/v1/events`, `/api/v1/odds/...`) | p99 < 50ms | TBD | `load-test/scenarios/odds_read.js` (k6) |
 
-부하 테스트 시나리오와 결과: `load-test/results/`.
+세부 측정 기록: [`load-test/results/2026-05-28/BASELINE.md`](./load-test/results/2026-05-28/BASELINE.md). 누적 최고치: [`load-test/results/BEST.md`](./load-test/results/BEST.md). 부하 테스트 셋업과 재현 방법은 [`load-test/README.md`](./load-test/README.md) 참조.
+
+### 측정 caveats
+
+- **단일 노드 in-process broker** — 실제 운영 환경(TCP / 별도 호스트 / 다중 replica)에서는 더 낮은 throughput이 예상된다. 위 수치는 publisher 측의 코드 효율 ceiling으로 해석해야 한다.
+- **Testcontainers cp-kafka 이미지가 ARM macOS에서 기동 실패**해 EmbeddedKafkaZKBroker로 대체. 같은 Kafka 클라이언트 코드를 사용하므로 publisher 측 측정은 유효하나 broker 실측치는 별도 환경에서 다시 확인 필요.
+- **end-to-end latency**는 mock 생성 시점부터 broker에 record가 commit되는 시점까지인데, MockOddsProvider와 broker가 별도 프로세스에 있어야 의미 있는 숫자가 나온다 → orchestration phase로 미룸.
 
 ## 제한사항 (V1)
 
