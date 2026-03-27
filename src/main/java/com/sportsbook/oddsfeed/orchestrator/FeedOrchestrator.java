@@ -1,5 +1,6 @@
 package com.sportsbook.oddsfeed.orchestrator;
 
+import com.sportsbook.oddsfeed.api.EventCatalog;
 import com.sportsbook.oddsfeed.cache.RedisOddsCache;
 import com.sportsbook.oddsfeed.provider.EventSummary;
 import com.sportsbook.oddsfeed.provider.MatchOutcome;
@@ -45,13 +46,18 @@ public class FeedOrchestrator {
   private final OddsProvider provider;
   private final RedisOddsCache cache;
   private final OddsFeedPublisher publisher;
+  private final EventCatalog catalog;
   private final Map<EventId, Disposable> subscriptions = new ConcurrentHashMap<>();
 
   public FeedOrchestrator(
-      OddsProvider provider, RedisOddsCache cache, OddsFeedPublisher publisher) {
+      OddsProvider provider,
+      RedisOddsCache cache,
+      OddsFeedPublisher publisher,
+      EventCatalog catalog) {
     this.provider = provider;
     this.cache = cache;
     this.publisher = publisher;
+    this.catalog = catalog;
   }
 
   @PostConstruct
@@ -72,6 +78,7 @@ public class FeedOrchestrator {
     for (Sport sport : Sport.values()) {
       for (EventSummary summary : provider.listEvents(sport)) {
         cache.storeEvent(summary);
+        catalog.put(summary);
         subscriptions.computeIfAbsent(summary.eventId(), this::subscribe);
       }
     }
@@ -121,16 +128,19 @@ public class FeedOrchestrator {
     cache
         .getEvent(event.eventId())
         .ifPresent(
-            current ->
-                cache.storeEvent(
-                    new EventSummary(
-                        current.eventId(),
-                        current.sport(),
-                        current.competition(),
-                        current.homeTeam(),
-                        current.awayTeam(),
-                        current.scheduledStartAt(),
-                        event.status())));
+            current -> {
+              EventSummary updated =
+                  new EventSummary(
+                      current.eventId(),
+                      current.sport(),
+                      current.competition(),
+                      current.homeTeam(),
+                      current.awayTeam(),
+                      current.scheduledStartAt(),
+                      event.status());
+              cache.storeEvent(updated);
+              catalog.put(updated);
+            });
 
     if (event.status() == EventLifecycleStatus.FINISHED) {
       Optional<MatchOutcome> outcome = provider.getMatchResult(event.eventId());
