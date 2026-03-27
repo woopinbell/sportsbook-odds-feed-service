@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.sportsbook.oddsfeed.api.EventCatalog;
 import com.sportsbook.oddsfeed.cache.RedisOddsCache;
 import com.sportsbook.oddsfeed.provider.EventSummary;
 import com.sportsbook.oddsfeed.provider.MatchOutcome;
@@ -37,6 +38,7 @@ class FeedOrchestratorTest {
   private OddsProvider provider;
   private RedisOddsCache cache;
   private OddsFeedPublisher publisher;
+  private EventCatalog catalog;
   private FeedOrchestrator orchestrator;
 
   private EventId eventId;
@@ -49,7 +51,8 @@ class FeedOrchestratorTest {
     provider = mock(OddsProvider.class);
     cache = mock(RedisOddsCache.class);
     publisher = mock(OddsFeedPublisher.class);
-    orchestrator = new FeedOrchestrator(provider, cache, publisher);
+    catalog = new EventCatalog();
+    orchestrator = new FeedOrchestrator(provider, cache, publisher, catalog);
 
     eventId = new EventId(UUID.randomUUID());
     marketId = new MarketId(UUID.randomUUID());
