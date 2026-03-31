@@ -14,7 +14,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.Disposable;
@@ -86,6 +88,47 @@ class MockOddsProviderTest {
     assertThat(outcome).isPresent();
     assertThat(outcome.get().finalStatus()).isEqualTo(MatchFinalStatus.COMPLETED);
     assertThat(outcome.get().score()).isIn("2-1", "1-1", "0-1");
+  }
+
+  @Test
+  void finishedEventGradesEachSelectionAgainstScore() {
+    EventSummary first = provider.listEvents(Sport.FOOTBALL).get(0);
+    provider.tick(T0.plusSeconds(120));
+    MatchOutcome outcome = provider.getMatchResult(first.eventId()).orElseThrow();
+
+    // The detail map is the WON/LOST contract settlement stamps onto each leg; an empty map (the
+    // original defect) means a completed event never settles. Map selectionId -> name via the
+    // package-visible mock event so we can tie the graded winner back to the synthesized score.
+    MockOddsProvider.MockEvent event =
+        provider.activeEvents().stream()
+            .filter(e -> e.summary.eventId().equals(first.eventId()))
+            .findFirst()
+            .orElseThrow();
+    Map<String, String> nameBySelectionId = new HashMap<>();
+    event.markets.forEach(
+        (marketId, market) ->
+            market.selections.forEach(
+                (selectionId, selection) ->
+                    nameBySelectionId.put(selectionId.value().toString(), selection.name)));
+
+    Map<String, String> detail = outcome.detail();
+    assertThat(detail).hasSize(3);
+    assertThat(detail.values()).filteredOn("WON"::equals).hasSize(1);
+    assertThat(detail.values()).filteredOn("LOST"::equals).hasSize(2);
+
+    String wonSelectionId =
+        detail.entrySet().stream()
+            .filter(e -> e.getValue().equals("WON"))
+            .map(Map.Entry::getKey)
+            .findFirst()
+            .orElseThrow();
+    String expectedWinner =
+        switch (outcome.score()) {
+          case "2-1" -> "HOME";
+          case "1-1" -> "DRAW";
+          default -> "AWAY";
+        };
+    assertThat(nameBySelectionId.get(wonSelectionId)).isEqualTo(expectedWinner);
   }
 
   @Test
