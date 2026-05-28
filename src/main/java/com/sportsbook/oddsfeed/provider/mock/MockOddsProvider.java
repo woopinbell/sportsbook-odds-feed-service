@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -121,7 +122,8 @@ public class MockOddsProvider implements OddsProvider {
 
   private void advance(MockEvent event, Instant now) {
     if (event.status == EventLifecycleStatus.FINISHED
-        || event.status == EventLifecycleStatus.CANCELLED) {
+        || event.status == EventLifecycleStatus.CANCELLED
+        || event.status == EventLifecycleStatus.POSTPONED) {
       return;
     }
 
@@ -157,7 +159,11 @@ public class MockOddsProvider implements OddsProvider {
     }
   }
 
-  private void transitionTo(MockEvent event, EventLifecycleStatus next, Instant now) {
+  Collection<MockEvent> activeEvents() {
+    return events.values();
+  }
+
+  void transitionTo(MockEvent event, EventLifecycleStatus next, Instant now) {
     log.debug("Event {} {} -> {}", event.summary.eventId().value(), event.status, next);
     event.status = next;
     event.summary =
@@ -175,7 +181,7 @@ public class MockOddsProvider implements OddsProvider {
             event.summary.eventId(), next, event.summary.scheduledStartAt(), now));
   }
 
-  private void emit(EventId eventId, ProviderEvent event) {
+  void emit(EventId eventId, ProviderEvent event) {
     Sinks.Many<ProviderEvent> sink = streams.get(eventId);
     if (sink != null) {
       sink.tryEmitNext(event);
