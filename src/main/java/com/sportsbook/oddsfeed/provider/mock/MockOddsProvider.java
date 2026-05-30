@@ -7,6 +7,7 @@ import com.sportsbook.oddsfeed.provider.OddsProvider;
 import com.sportsbook.oddsfeed.provider.ProviderEvent;
 import com.sportsbook.oddsfeed.provider.Sport;
 import com.sportsbook.protocol.domain.MarketType;
+import com.sportsbook.protocol.domain.SettlementResult;
 import com.sportsbook.protocol.event.EventLifecycleStatus;
 import com.sportsbook.protocol.event.MarketStatus;
 import com.sportsbook.protocol.event.MatchFinalStatus;
@@ -131,8 +132,13 @@ public class MockOddsProvider implements OddsProvider {
       transitionTo(event, EventLifecycleStatus.IN_PLAY, now);
     }
     if (event.status == EventLifecycleStatus.IN_PLAY && !now.isBefore(event.endAt)) {
-      transitionTo(event, EventLifecycleStatus.FINISHED, now);
+      // Outcome MUST be stored before transitionTo: transitionTo emits LifecycleUpdated(FINISHED),
+      // which the orchestrator handles synchronously and immediately calls getMatchResult(). If the
+      // outcome isn't in the map yet, getMatchResult returns empty and MatchResult is never
+      // published — settlement then never triggers. (Unit tests called getMatchResult separately,
+      // so this ordering dependency only surfaced in the full-stack Phase-5 e2e.)
       outcomes.put(event.summary.eventId(), synthesizeOutcome(event, now));
+      transitionTo(event, EventLifecycleStatus.FINISHED, now);
       return;
     }
 
@@ -245,15 +251,42 @@ public class MockOddsProvider implements OddsProvider {
     double pDraw = props.baseDrawProbability();
     double roll = rng.nextDouble();
     String score;
+    String winningSelection;
     if (roll < pHome) {
       score = "2-1";
+      winningSelection = "HOME";
     } else if (roll < pHome + pDraw) {
       score = "1-1";
+      winningSelection = "DRAW";
     } else {
       score = "0-1";
+      winningSelection = "AWAY";
     }
     return new MatchOutcome(
-        event.summary.eventId(), score, MatchFinalStatus.COMPLETED, Map.of(), now);
+        event.summary.eventId(),
+        score,
+        MatchFinalStatus.COMPLETED,
+        gradeSelections(event, winningSelection),
+        now);
+  }
+
+  /**
+   * Per-selection result contract settlement consumes: {@code selectionId -> SettlementResult}
+   * name. For the single 1X2 market the winning outcome's selection is WON and the other two LOST.
+   * Without this map the MatchResult carries an empty {@code resultDetail}, so settlement stamps no
+   * outcome and a completed event never settles — the defect the placeholder {@code Map.of()} hid
+   * until the full-stack Phase-5 e2e (unit tests asserted score/status, never the per-leg grading).
+   */
+  private Map<String, String> gradeSelections(MockEvent event, String winningSelection) {
+    Map<String, String> detail = new LinkedHashMap<>();
+    for (MockMarket market : event.markets.values()) {
+      for (MockSelection selection : market.selections.values()) {
+        SettlementResult result =
+            selection.name.equals(winningSelection) ? SettlementResult.WON : SettlementResult.LOST;
+        detail.put(selection.selectionId.value().toString(), result.name());
+      }
+    }
+    return detail;
   }
 
   private Duration toRealDuration(Duration mockDuration) {
