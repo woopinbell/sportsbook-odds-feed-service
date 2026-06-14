@@ -89,12 +89,14 @@ Details below and in [`docs/reflection/`](./docs/reflection/).
 
 ## 시스템에서의 위치
 
-[sportsbook](../) 9 repo 중 Phase 2 leaf. `shared-protocol`만 의존하며, 다른 sportsbook 서비스는 의존하지 않는다 (`wallet-service`, `risk-service`와 병렬 진행 가능).
+sportsbook 9 repo 중 Phase 2 leaf. `shared-protocol`만 의존하며, 다른 sportsbook 서비스는 의존하지 않는다 (`wallet-service`, `risk-service`와 병렬 진행 가능).
 
 - **의존**: `shared-protocol` (Avro 이벤트 스키마 + 도메인 value object)
 - **의존받음**: `betting-service` (베팅 슬립 검증 시 Redis odds read), `gateway` (Kafka subscribe → WebSocket fan-out), `settlement-service` (`MatchResult` 이벤트 consume)
 
-전체 시스템 컨텍스트와 cross-cutting 결정은 [../CLAUDE.md](../CLAUDE.md) 및 [orchestration/docs/architecture/decisions/](../orchestration/docs/architecture/decisions/) 참고.
+전체 시스템 컨텍스트와 cross-cutting 결정은 orchestration 레포의 CLAUDE.md 및 docs/architecture/decisions/ 참고.
+
+> 시스템 전체 설계는 orchestration 레포의 docs/DESIGN.md에 있습니다.
 
 ## 책임 범위
 
@@ -132,7 +134,7 @@ Details below and in [`docs/reflection/`](./docs/reflection/).
 | Observability | logstash-logback-encoder (JSON logs) + Micrometer / Prometheus + OpenTelemetry tracing |
 | 외부 API client | Spring WebClient (Reactor) — `THE_ODDS_API_KEY` 환경변수로 활성 |
 
-근거: [ADR-0015](../orchestration/docs/architecture/decisions/0015-stack-pivot-to-java.md), [ADR-0010](../orchestration/docs/architecture/decisions/0010-data-source-strategy.md), [ADR-0006](../orchestration/docs/architecture/decisions/0006-messaging-and-saga.md).
+근거: ADR-0015, ADR-0010, ADR-0006 (orchestration 레포의 docs/architecture/decisions/).
 
 ## 빌드 / 실행 / 테스트
 
@@ -179,14 +181,14 @@ src/main/java/com/sportsbook/oddsfeed/
 
 ## 결정 사항 참조
 
-이 repo에 특히 적용되는 결정 (전체 결정은 [../CLAUDE.md](../CLAUDE.md) 참조):
+이 repo에 특히 적용되는 결정 (전체 결정은 orchestration 레포의 CLAUDE.md 참조), orchestration 레포의 docs/architecture/decisions/:
 
-- [ADR-0010 — Data Source Strategy](../orchestration/docs/architecture/decisions/0010-data-source-strategy.md) — Mock + The Odds API duo, `OddsProvider` 인터페이스 격리
-- [ADR-0006 — Messaging and Saga](../orchestration/docs/architecture/decisions/0006-messaging-and-saga.md) — Kafka + Avro, partition key `eventId`, Saga + Outbox
-- [ADR-0014 — Avro Schema Tooling](../orchestration/docs/architecture/decisions/0014-avro-schema-tooling.md) — `.avsc` 위치, V1 Schema Registry 없음
-- [ADR-0007 — Observability](../orchestration/docs/architecture/decisions/0007-observability.md) — JSON logs / OTel / Prometheus
-- [ADR-0004 — API Conventions](../orchestration/docs/architecture/decisions/0004-api-conventions.md) — camelCase, RFC 7807, cursor pagination
-- [ADR-0013 — Domain Enums](../orchestration/docs/architecture/decisions/0013-domain-enums.md) — `MarketType` V1 4종
+- ADR-0010 — Data Source Strategy — Mock + The Odds API duo, `OddsProvider` 인터페이스 격리
+- ADR-0006 — Messaging and Saga — Kafka + Avro, partition key `eventId`, Saga + Outbox
+- ADR-0014 — Avro Schema Tooling — `.avsc` 위치, V1 Schema Registry 없음
+- ADR-0007 — Observability — JSON logs / OTel / Prometheus
+- ADR-0004 — API Conventions — camelCase, RFC 7807, cursor pagination
+- ADR-0013 — Domain Enums — `MarketType` V1 4종
 
 ### 이 repo 고유 결정 (CLAUDE.md 참조)
 
